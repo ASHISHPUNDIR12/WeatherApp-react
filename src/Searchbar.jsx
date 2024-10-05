@@ -9,9 +9,34 @@ const Searchbar = () => {
         windSpeed: '',
         pressure: ''
     });
+    const [error, setError] = useState(''); // State for error message
 
     const handleCityName = (e) => {
         setCityName(e.target.value);
+        setError(''); // Reset error on input change
+    };
+
+    const fetchWeatherData = async (lat, lon) => {
+        const myApi = "5aac0747a4a9c46ace2f74c231775671";
+        const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?&units=metric&lat=${lat}&lon=${lon}&appid=${myApi}`);
+        const data = await response.json();
+        
+        // Destructure data and set in state
+        const { name, main: { temp, humidity, pressure }, wind: { speed: windSpeed } } = data;
+        setWeatherData({ name, temp, humidity, windSpeed, pressure });
+    };
+
+    const getLocationWeather = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                const { latitude, longitude } = position.coords;
+                fetchWeatherData(latitude, longitude);
+            }, (error) => {
+                console.error("Geolocation error: ", error);
+            });
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
     };
 
     const handleWeatherData = async () => {
@@ -19,12 +44,23 @@ const Searchbar = () => {
         if (cityName.trim()) {
             const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?&units=metric&q=${cityName}&appid=${myApi}`);
             const data = await response.json();
-            
-            // Destructure data and set in state
-            const { name, main: { temp, humidity, pressure }, wind: { speed: windSpeed } } = data;
-            setWeatherData({ name, temp, humidity, windSpeed, pressure });
-            
-            console.log(data);
+
+            // Check if the response is successful
+            if (response.ok) {
+                // Destructure data and set in state
+                const { name, main: { temp, humidity, pressure }, wind: { speed: windSpeed } } = data;
+                setWeatherData({ name, temp, humidity, windSpeed, pressure });
+                setError(''); // Clear any previous errors
+            } else {
+                // Set an error message if the city is not found
+                setError('Please enter a valid city name.');
+                setWeatherData({ name: '', temp: '', humidity: '', windSpeed: '', pressure: '' }); // Reset weather data
+            }
+        }
+    };
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleWeatherData(); // Call the search function on Enter key press
         }
     };
 
@@ -37,6 +73,7 @@ const Searchbar = () => {
                         type="text" 
                         placeholder="Enter city name" 
                         value={cityName} 
+                        onKeyDown={handleKeyPress}
                         onChange={handleCityName} 
                         className="w-full p-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
                     />
@@ -46,8 +83,14 @@ const Searchbar = () => {
                     >
                         Search
                     </button>
+                    <button onClick={getLocationWeather} className="ml-2 bg-green-500 text-white p-2 rounded shadow hover:bg-green-600 transition duration-200">
+                        My Location
+                    </button>
                 </div>
-                {weatherData.name && (
+                {error && (
+                    <p className="mt-4 text-red-500">{error}</p> // Error message
+                )}
+                {weatherData.name && !error && (
                     <div className="mt-6 bg-gray-100 p-4 rounded-lg shadow-md">
                         <h2 className="text-xl font-semibold text-gray-800 mb-2">{weatherData.name}</h2>
                         <div className="flex justify-between items-center">
